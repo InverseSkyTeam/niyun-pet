@@ -310,10 +310,10 @@ onUnmounted(() => {
     position: relative;
     width: 100%;
     height: 155px;
-    background: rgba(248, 248, 252, 0.92);
-    border: 1px solid rgba(180, 180, 195, 0.85);
+    background: rgba(255, 248, 243, 0.95);
+    border: 1px solid rgba(255, 214, 224, 0.9);
     border-radius: 16px;
-    box-shadow: 0 4px 16px rgba(30, 30, 50, 0.18);
+    box-shadow: 0 4px 16px rgba(255, 122, 156, 0.15);
     overflow: hidden;
 }
 
@@ -325,8 +325,8 @@ onUnmounted(() => {
     height: 0;
     border-top: 9px solid transparent;
     border-bottom: 9px solid transparent;
-    border-right: 11px solid rgba(248, 248, 252, 0.92);
-    filter: drop-shadow(-1px 0 0 rgba(180, 180, 195, 0.85));
+    border-right: 11px solid rgba(255, 248, 243, 0.95);
+    filter: drop-shadow(-1px 0 0 rgba(255, 214, 224, 0.9));
 }
 
 .msg-list {
@@ -346,22 +346,22 @@ onUnmounted(() => {
 }
 
 .msg.user .label {
-    color: #3264b4;
+    color: #ff5a82;
     font-weight: 600;
 }
 .msg.user .content {
-    color: #2a3d6b;
+    color: #5c3d4e;
 }
 .msg.assistant .label {
-    color: #7a3b8f;
+    color: #9d6fd8;
     font-weight: 600;
 }
 .msg.assistant .content {
-    color: #15151f;
+    color: #3d2f3f;
 }
 
 .hint {
-    color: #45455a;
+    color: #9d6f7e;
     font-size: 14px;
     padding-top: 4px;
 }
@@ -378,12 +378,12 @@ onUnmounted(() => {
     width: 100%;
     height: 36px;
     padding: 0 12px;
-    border: 1px solid rgba(120, 120, 150, 0.9);
+    border: 1px solid rgba(255, 205, 214, 0.9);
     border-radius: 12px;
-    background: rgba(40, 40, 52, 0.95);
-    color: #ffffff;
+    background: rgba(255, 240, 245, 0.95);
+    color: #4a3a44;
     font-size: 14px;
-    caret-color: #ffffff;
+    caret-color: #ff7a9c;
     outline: none;
     transition:
         border-color 0.15s ease,
@@ -391,13 +391,13 @@ onUnmounted(() => {
 }
 
 .input::placeholder {
-    color: rgba(180, 180, 190, 0.55);
+    color: rgba(255, 122, 156, 0.5);
     font-size: 13px;
 }
 
 .input:focus {
-    border-color: #6ca6ff;
-    box-shadow: 0 0 0 2px rgba(108, 166, 255, 0.25);
+    border-color: #ff7a9c;
+    box-shadow: 0 0 0 2px rgba(255, 122, 156, 0.2);
 }
 
 .waiting {
@@ -406,10 +406,10 @@ onUnmounted(() => {
     gap: 8px;
     height: 36px;
     padding: 0 12px;
-    border: 1px dashed rgba(140, 140, 160, 0.6);
+    border: 1px dashed rgba(255, 205, 214, 0.8);
     border-radius: 12px;
-    background: rgba(40, 40, 52, 0.7);
-    color: rgba(200, 200, 210, 0.85);
+    background: rgba(255, 240, 245, 0.8);
+    color: #9d6f7e;
     font-size: 13px;
 }
 
@@ -417,7 +417,7 @@ onUnmounted(() => {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #6ca6ff;
+    background: #ff7a9c;
     animation: blink 1s ease-in-out infinite;
 }
 
@@ -437,11 +437,11 @@ onUnmounted(() => {
     position: absolute;
     z-index: 100;
     width: 130px;
-    background: rgba(52, 54, 70, 0.95);
-    border: 1px solid rgba(130, 140, 170, 0.8);
+    background: rgba(74, 58, 68, 0.96);
+    border: 1px solid rgba(107, 85, 96, 0.8);
     border-radius: 10px;
     padding: 4px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 6px 20px rgba(255, 122, 156, 0.2);
 }
 
 .menu-item {
@@ -450,7 +450,7 @@ onUnmounted(() => {
     border: none;
     border-radius: 7px;
     background: transparent;
-    color: #ffffff;
+    color: #fff8f3;
     font-size: 14px;
     font-family: inherit;
     cursor: pointer;
@@ -458,6 +458,6 @@ onUnmounted(() => {
 }
 
 .menu-item:hover {
-    background: rgba(108, 166, 255, 0.35);
+    background: rgba(255, 122, 156, 0.3);
 }
 </style>

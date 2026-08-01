@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, computed, onMounted } from "vue";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { AppSettings } from "../settings";
 
 const props = defineProps<{ settings: AppSettings }>();
@@ -51,19 +52,42 @@ function save() {
         reasoningEffort: form.reasoningEffort.trim(),
     });
 }
+
+function closeSettings() {
+    getCurrentWindow().close();
+}
 </script>
 
 <template>
-    <div class="h-screen overflow-y-auto bg-slate-50 font-sans">
-        <div class="min-h-full flex items-center justify-center p-6">
-            <div class="w-full max-w-3xl">
-                <div class="mb-8">
-                    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">设置</h1>
-                    <p class="mt-1.5 text-sm text-slate-500">配置 AI 桌宠的模型接口与推理参数。</p>
-                </div>
+    <div class="h-screen flex flex-col bg-rose-50 font-sans overflow-hidden">
+        <div
+            class="title-bar flex items-center justify-between px-4 py-3 bg-gradient-to-r from-rose-400 to-pink-400"
+            data-tauri-drag-region
+        >
+            <div class="flex items-center gap-2">
+                <span class="text-white/90 text-sm font-medium tracking-wide">设置 · 逆云</span>
+            </div>
+            <button
+                class="title-btn w-7 h-7 rounded-md flex items-center justify-center text-white/80 hover:bg-white/25 hover:text-white transition-all duration-150"
+                @click="closeSettings"
+            >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto">
+            <div class="min-h-full flex items-center justify-center p-6">
+                <div class="w-full max-w-3xl">
+                    <div class="mb-8">
+                        <h1 class="text-2xl font-semibold tracking-tight text-rose-900">设置</h1>
+                        <p class="mt-1.5 text-sm text-rose-500">配置 AI 桌宠的模型接口与推理参数。</p>
+                    </div>
 
                 <div class="mb-6">
-                    <div class="text-xs font-medium text-slate-500 mb-2.5 uppercase tracking-wider">
+                    <div class="text-xs font-medium text-rose-500 mb-2.5 uppercase tracking-wider">
                         模型预设
                     </div>
                     <div class="flex flex-wrap gap-2">
@@ -74,8 +98,8 @@ function save() {
                             class="h-9 px-4 rounded-md border text-sm font-medium transition-all duration-200"
                             :class="
                                 detectedProvider === p.name
-                                    ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm'
+                                    ? 'border-rose-500 bg-rose-500 text-white shadow-sm'
+                                    : 'border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:shadow-sm'
                             "
                             @click="applyPreset(p)"
                         >
@@ -84,13 +108,13 @@ function save() {
                     </div>
                 </div>
 
-                <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="rounded-xl border border-rose-200 bg-white shadow-sm overflow-hidden">
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-slate-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-slate-900">API Key</div>
-                            <div class="mt-1 text-xs text-slate-500 leading-relaxed">
+                            <div class="text-sm font-medium text-rose-900">API Key</div>
+                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
                                 用于鉴权的密钥，仅保存在本机。
                             </div>
                         </div>
@@ -100,20 +124,20 @@ function save() {
                                 ref="apiKeyInput"
                                 v-model="form.apiKey"
                                 type="password"
-                                class="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:ring-offset-0 focus:outline-none shadow-sm"
+                                class="flex h-10 w-full rounded-lg border border-rose-200 bg-white px-3.5 text-sm text-rose-900 transition-all duration-200 placeholder:text-rose-400 hover:border-rose-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10 focus:ring-offset-0 focus:outline-none shadow-sm"
                                 placeholder="sk-..."
                                 maxlength="400"
                             />
-                            <p class="text-xs text-slate-400">{{ form.apiKey.length }} 字符</p>
+                            <p class="text-xs text-rose-400">{{ form.apiKey.length }} 字符</p>
                         </div>
                     </div>
 
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-slate-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-slate-900">Base URL</div>
-                            <div class="mt-1 text-xs text-slate-500 leading-relaxed">
+                            <div class="text-sm font-medium text-rose-900">Base URL</div>
+                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
                                 OpenAI 兼容接口地址。
                             </div>
                         </div>
@@ -122,13 +146,13 @@ function save() {
                                 id="base-url"
                                 v-model="form.baseUrl"
                                 type="text"
-                                class="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:ring-offset-0 focus:outline-none font-mono shadow-sm"
+                                class="flex h-10 w-full rounded-lg border border-rose-200 bg-white px-3.5 text-sm text-rose-900 transition-all duration-200 placeholder:text-rose-400 hover:border-rose-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10 focus:ring-offset-0 focus:outline-none font-mono shadow-sm"
                                 placeholder="https://api.example.com/v1"
                                 maxlength="200"
                             />
                             <div class="flex items-center gap-2">
                                 <span
-                                    class="inline-flex items-center h-5 px-2.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600"
+                                    class="inline-flex items-center h-5 px-2.5 rounded-full text-[11px] font-medium bg-rose-100 text-rose-600"
                                 >
                                     {{ detectedProvider }}
                                 </span>
@@ -137,11 +161,11 @@ function save() {
                     </div>
 
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-slate-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-slate-900">Model</div>
-                            <div class="mt-1 text-xs text-slate-500 leading-relaxed">
+                            <div class="text-sm font-medium text-rose-900">Model</div>
+                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
                                 调用的模型 ID。
                             </div>
                         </div>
@@ -149,25 +173,25 @@ function save() {
                             id="model"
                             v-model="form.model"
                             type="text"
-                            class="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:ring-offset-0 focus:outline-none font-mono shadow-sm"
+                            class="flex h-10 w-full rounded-lg border border-rose-200 bg-white px-3.5 text-sm text-rose-900 transition-all duration-200 placeholder:text-rose-400 hover:border-rose-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10 focus:ring-offset-0 focus:outline-none font-mono shadow-sm"
                             placeholder="glm-4.7-flash"
                             maxlength="100"
                         />
                     </div>
 
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-slate-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-slate-900">思考模式</div>
-                            <div class="mt-1 text-xs text-slate-500 leading-relaxed">
+                            <div class="text-sm font-medium text-rose-900">思考模式</div>
+                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
                                 启用链式推理（CoT）。
                             </div>
                         </div>
                         <div class="flex items-center gap-3 h-10">
                             <button
-                                class="relative h-6 w-11 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2"
-                                :class="form.thinkingEnabled ? 'bg-slate-900' : 'bg-slate-200'"
+                                class="relative h-6 w-11 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/20 focus-visible:ring-offset-2"
+                                :class="form.thinkingEnabled ? 'bg-rose-500' : 'bg-rose-200'"
                                 role="switch"
                                 :aria-checked="form.thinkingEnabled"
                                 @click="form.thinkingEnabled = !form.thinkingEnabled"
@@ -175,22 +199,22 @@ function save() {
                                 <span
                                     class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all duration-200"
                                     :class="
-                                        form.thinkingEnabled ? 'translate-x-5' : 'translate-x-0'
+                                        form.thinkingEnabled ? 'tranrose-x-5' : 'tranrose-x-0'
                                     "
                                 />
                             </button>
-                            <span class="text-sm text-slate-600">{{
+                            <span class="text-sm text-rose-600">{{
                                 form.thinkingEnabled ? "已启用" : "已禁用"
                             }}</span>
                         </div>
                     </div>
 
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-slate-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-slate-900">Reason Effort</div>
-                            <div class="mt-1 text-xs text-slate-500 leading-relaxed">
+                            <div class="text-sm font-medium text-rose-900">Reason Effort</div>
+                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
                                 推理力度，仅在思考模式启用时生效。
                             </div>
                         </div>
@@ -202,8 +226,8 @@ function save() {
                                 class="h-8 px-3.5 rounded-md border text-sm font-mono transition-all duration-200"
                                 :class="
                                     form.reasoningEffort === opt
-                                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                        ? 'border-rose-500 bg-rose-500 text-white shadow-sm'
+                                        : 'border-rose-200 bg-white text-rose-600 hover:border-rose-300 hover:bg-rose-50'
                                 "
                                 @click="
                                     form.reasoningEffort = form.reasoningEffort === opt ? '' : opt
@@ -215,11 +239,11 @@ function save() {
                     </div>
 
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-slate-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-slate-900">兼容性</div>
-                            <div class="mt-1 text-xs text-slate-500 leading-relaxed">
+                            <div class="text-sm font-medium text-rose-900">兼容性</div>
+                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
                                 支持的接口协议。
                             </div>
                         </div>
@@ -250,17 +274,17 @@ function save() {
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-end gap-2.5 px-7 py-5 bg-slate-50/70">
+                    <div class="flex items-center justify-end gap-2.5 px-7 py-5 bg-rose-50/70">
                         <button
                             type="button"
-                            class="h-9 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 transition-all duration-200 hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20"
+                            class="h-9 px-4 rounded-lg border border-rose-200 bg-white text-sm font-medium text-rose-700 transition-all duration-200 hover:bg-rose-50 hover:border-rose-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/20"
                             @click="emit('cancel')"
                         >
                             取消
                         </button>
                         <button
                             type="button"
-                            class="h-9 px-5 rounded-lg bg-slate-900 text-sm font-medium text-white transition-all duration-200 hover:bg-slate-800 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2 shadow-sm"
+                            class="h-9 px-5 rounded-lg bg-rose-500 text-sm font-medium text-white transition-all duration-200 hover:bg-rose-600 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/20 focus-visible:ring-offset-2 shadow-sm"
                             @click="save"
                         >
                             保存更改
@@ -268,6 +292,7 @@ function save() {
                     </div>
                 </div>
             </div>
+        </div>
         </div>
     </div>
 </template>

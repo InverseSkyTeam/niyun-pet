@@ -73,7 +73,7 @@ async function openSettings() {
         height: 720,
         minWidth: 760,
         minHeight: 720,
-        decorations: true,
+        decorations: false,
         resizable: false,
         center: true,
         alwaysOnTop: false,
