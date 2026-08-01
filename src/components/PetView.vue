@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from "vue";
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 interface Msg {
@@ -7,10 +7,13 @@ interface Msg {
     content: string;
 }
 
+type Mood = "neutral" | "happy" | "shy" | "angry" | "sleepy";
+
 const props = defineProps<{
     history: Msg[];
     waiting: boolean;
     streamed: string;
+    mood?: Mood;
 }>();
 
 const emit = defineEmits<{
@@ -24,6 +27,7 @@ const msgListEl = ref<HTMLDivElement | null>(null);
 const menuVisible = ref(false);
 const menuPos = ref({ x: 0, y: 0 });
 const autoScroll = ref(true);
+const squishing = ref(false);
 
 const displayMsgs = computed(() => {
     const msgs: { role: "user" | "assistant"; content: string }[] = [...props.history];
@@ -78,22 +82,45 @@ function closeMenu() {
     menuVisible.value = false;
 }
 
+let moveDebounce: ReturnType<typeof setTimeout> | undefined;
+let unlistenMove: (() => void) | undefined;
+
 function onPetMouseDown(e: MouseEvent) {
     if (e.button === 0) {
+        squishing.value = true;
         getCurrentWindow().startDragging();
+        moveDebounce = setTimeout(() => {
+            squishing.value = false;
+        }, 150);
     }
 }
+
+onMounted(async () => {
+    unlistenMove = await getCurrentWindow().onMoved(() => {
+        if (moveDebounce) clearTimeout(moveDebounce);
+        moveDebounce = setTimeout(() => {
+            squishing.value = false;
+        }, 80);
+    });
+});
+
+onUnmounted(() => {
+    unlistenMove?.();
+});
 </script>
 
 <template>
     <div class="pet-root" @mousedown="menuVisible = false">
         <div
             class="pet-area"
+            :class="{ squishing: squishing }"
             @mousedown="onPetMouseDown"
             @contextmenu.prevent="openMenu"
             @click="menuVisible = false"
         >
-            <div class="pet-img"></div>
+            <div class="pet-mood" :class="'mood-' + (mood || 'neutral')">
+                <div class="pet-img"></div>
+            </div>
         </div>
 
         <div class="panel">
@@ -169,6 +196,40 @@ function onPetMouseDown(e: MouseEvent) {
     top: 0;
     width: 192px;
     height: 210px;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pet-area.squishing {
+    transform: scaleY(0.82) scaleX(1.15);
+    transition: transform 0.1s ease-out;
+}
+
+.pet-mood {
+    width: 100%;
+    height: 100%;
+    transition:
+        filter 0.4s ease,
+        transform 0.4s ease;
+}
+
+.pet-mood.mood-happy {
+    filter: brightness(1.08) saturate(1.15);
+    animation: bounce 0.7s ease-in-out;
+}
+
+.pet-mood.mood-shy {
+    filter: hue-rotate(-15deg) saturate(1.4) brightness(1.05);
+    animation: shake 0.5s ease-in-out 2;
+}
+
+.pet-mood.mood-angry {
+    filter: hue-rotate(-25deg) saturate(1.6) brightness(1.08);
+    animation: angry-shake 0.18s ease-in-out infinite;
+}
+
+.pet-mood.mood-sleepy {
+    filter: brightness(0.82) saturate(0.8);
+    animation: slow-breathe 4.5s ease-in-out infinite;
 }
 
 .pet-img {
@@ -178,6 +239,63 @@ function onPetMouseDown(e: MouseEvent) {
     background-size: 100% 100%;
     background-repeat: no-repeat;
     background-position: center;
+    animation: breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+    0%,
+    100% {
+        transform: scaleY(1);
+    }
+    50% {
+        transform: scaleY(1.03);
+    }
+}
+
+@keyframes slow-breathe {
+    0%,
+    100% {
+        transform: rotate(-4deg) scaleY(1);
+    }
+    50% {
+        transform: rotate(-4deg) scaleY(1.02);
+    }
+}
+
+@keyframes bounce {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-4px);
+    }
+    75% {
+        transform: translateX(4px);
+    }
+}
+
+@keyframes angry-shake {
+    0%,
+    100% {
+        transform: translateX(0) rotate(0);
+    }
+    25% {
+        transform: translateX(-3px) rotate(-1.5deg);
+    }
+    75% {
+        transform: translateX(3px) rotate(1.5deg);
+    }
 }
 
 .panel {
