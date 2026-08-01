@@ -152,8 +152,8 @@ async function startWalking() {
 
     const screenW = monitor.size.width;
     const screenH = monitor.size.height;
-    const monX = monitor.position().x;
-    const monY = monitor.position().y;
+    const monX = monitor.position.x;
+    const monY = monitor.position.y;
     const winW = size.width;
     const winH = size.height;
 
