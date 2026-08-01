@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch, onMounted, onUnmounted } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import type { PetStats } from "../petState";
+import { getFestival, generateParticles, type FestivalConfig } from "../festival";
 
 interface Msg {
     role: "user" | "assistant";
@@ -16,7 +18,12 @@ const props = defineProps<{
     streamed: string;
     mood?: Mood;
     petStats?: PetStats;
+    isSleeping?: boolean;
+    walkingDirection?: "left" | "right" | null;
 }>();
+
+const festival = computed<FestivalConfig | null>(() => getFestival());
+const particles = computed(() => festival.value ? generateParticles(festival.value) : []);
 
 const emit = defineEmits<{
     send: [text: string];
@@ -32,12 +39,37 @@ const menuVisible = ref(false);
 const menuPos = ref({ x: 0, y: 0 });
 const autoScroll = ref(true);
 const squishing = ref(false);
+const eating = ref(false);
+const eatBone = ref(false);
+const panelVisible = ref(true);
+let eatTimers: ReturnType<typeof setTimeout>[] = [];
 
 const hungerPct = computed(() => Math.round(props.petStats?.hunger ?? 100));
 const moodPct = computed(() => Math.round(props.petStats?.mood ?? 100));
 
+const lowStatType = computed<"hunger" | "mood" | null>(() => {
+    if (!props.petStats) return null;
+    if (props.petStats.hunger < 20) return "hunger";
+    if (props.petStats.mood < 20) return "mood";
+    return null;
+});
+
 function feedPet() {
     emit("feed");
+    menuVisible.value = false;
+    eatTimers.forEach(clearTimeout);
+    eatTimers = [];
+    eating.value = true;
+    eatBone.value = false;
+    eatTimers.push(setTimeout(() => { eatBone.value = true; }, 2000));
+    eatTimers.push(setTimeout(() => {
+        eating.value = false;
+        eatBone.value = false;
+    }, 4000));
+}
+
+function togglePanel() {
+    panelVisible.value = !panelVisible.value;
     menuVisible.value = false;
 }
 
@@ -78,7 +110,7 @@ watch(
 function openMenu(e: MouseEvent) {
     menuVisible.value = true;
     const w = 130;
-    const h = 116;
+    const h = 152;
     let x = e.clientX;
     let y = e.clientY;
     if (x + w > window.innerWidth) x = window.innerWidth - w - 4;
@@ -87,7 +119,7 @@ function openMenu(e: MouseEvent) {
 }
 
 function closePet() {
-    getCurrentWindow().close();
+    getCurrentWindow().hide();
 }
 
 function closeMenu() {
@@ -108,22 +140,102 @@ function onPetMouseDown(e: MouseEvent) {
     }
 }
 
+const win = getCurrentWindow();
+let ignoring = false;
+let pollTimer: ReturnType<typeof setInterval> | undefined;
+
+const petCanvas = document.createElement("canvas");
+const petCtx = petCanvas.getContext("2d", { willReadFrequently: true });
+let petImageLoaded = false;
+
+function loadPetImage() {
+    const img = new Image();
+    img.onload = () => {
+        petCanvas.width = 192;
+        petCanvas.height = 210;
+        petCtx?.drawImage(img, 0, 0, 192, 210);
+        petImageLoaded = true;
+    };
+    img.src = "/1.png";
+}
+
+function isTransparentAt(x: number, y: number): boolean {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return true;
+    if (el.closest(".panel, .context-menu")) return false;
+    const petArea = el.closest(".pet-area");
+    if (petArea) {
+        if (!petImageLoaded || !petCtx) return false;
+        const rect = petArea.getBoundingClientRect();
+        const localX = Math.floor(x - rect.left);
+        const localY = Math.floor(y - rect.top);
+        if (localX < 0 || localX >= 192 || localY < 0 || localY >= 210) return true;
+        const pixel = petCtx.getImageData(localX, localY, 1, 1).data;
+        return pixel[3] < 128;
+    }
+    return true;
+}
+
+async function setPassthrough(ignore: boolean) {
+    if (ignoring === ignore) return;
+    ignoring = ignore;
+    await win.setIgnoreCursorEvents(ignore);
+}
+
+async function onMouseMovePassthrough(e: MouseEvent) {
+    await setPassthrough(isTransparentAt(e.clientX, e.clientY));
+}
+
+async function pollCursor() {
+    if (!ignoring) return;
+    try {
+        const [cx, cy] = await invoke<[number, number]>("get_cursor_pos");
+        const winPos = await win.outerPosition();
+        const scaleFactor = await win.scaleFactor();
+        const localX = (cx - winPos.x) / scaleFactor;
+        const localY = (cy - winPos.y) / scaleFactor;
+        if (!isTransparentAt(localX, localY)) {
+            await setPassthrough(false);
+        }
+    } catch {}
+}
+
 onMounted(async () => {
+    loadPetImage();
     unlistenMove = await getCurrentWindow().onMoved(() => {
         if (moveDebounce) clearTimeout(moveDebounce);
         moveDebounce = setTimeout(() => {
             squishing.value = false;
         }, 80);
     });
+    document.addEventListener("mousemove", onMouseMovePassthrough);
+    pollTimer = setInterval(pollCursor, 100);
 });
 
 onUnmounted(() => {
     unlistenMove?.();
+    eatTimers.forEach(clearTimeout);
+    document.removeEventListener("mousemove", onMouseMovePassthrough);
+    if (pollTimer) clearInterval(pollTimer);
 });
 </script>
 
 <template>
     <div class="pet-root" @mousedown="menuVisible = false">
+        <div v-if="particles.length" class="festival-overlay" aria-hidden="true">
+            <span
+                v-for="(p, i) in particles"
+                :key="i"
+                class="festival-particle"
+                :class="festival?.animation"
+                :style="{
+                    left: p.left + '%',
+                    animationDelay: p.delay + 's',
+                    animationDuration: p.duration + 's',
+                    fontSize: p.size + 'px',
+                }"
+            >{{ festival?.particle }}</span>
+        </div>
         <div
             class="pet-area"
             :class="{ squishing: squishing }"
@@ -131,9 +243,35 @@ onUnmounted(() => {
             @contextmenu.prevent="openMenu"
             @click="menuVisible = false"
         >
-            <div class="pet-mood" :class="'mood-' + (mood || 'neutral')">
+            <div
+                class="pet-mood"
+                :class="[
+                    'mood-' + (mood || 'neutral'),
+                    {
+                        sleeping: isSleeping,
+                        'low-stat': lowStatType,
+                        walking: walkingDirection,
+                        'walk-left': walkingDirection === 'left',
+                    },
+                ]"
+            >
                 <div class="pet-img"></div>
             </div>
+
+            <div v-if="isSleeping" class="cg-sleep">
+                <span class="zzz z1">z</span>
+                <span class="zzz z2">Z</span>
+                <span class="zzz z3">Z</span>
+            </div>
+
+            <div v-if="lowStatType" class="cg-lowstat">
+                <span class="lowstat-icon">{{ lowStatType === 'hunger' ? '💢' : '💧' }}</span>
+            </div>
+
+            <div v-if="eating" class="cg-eat">
+                <span class="eat-icon" :class="{ bone: eatBone }">{{ eatBone ? '🦴' : '🐟' }}</span>
+            </div>
+
             <div class="pet-stats">
                 <div class="stat">
                     <span class="stat-icon">🍣</span>
@@ -146,7 +284,7 @@ onUnmounted(() => {
             </div>
         </div>
 
-        <div class="panel">
+        <div v-if="panelVisible" class="panel">
             <div class="bubble">
                 <div class="bubble-arrow"></div>
                 <div class="msg-list" ref="msgListEl" @wheel="onWheel">
@@ -184,6 +322,7 @@ onUnmounted(() => {
             @mousedown.stop
         >
             <button class="menu-item" @click="feedPet">投喂小鱼干</button>
+            <button class="menu-item" @click="togglePanel">{{ panelVisible ? '收起对话框' : '展开对话框' }}</button>
             <button
                 class="menu-item"
                 @click="
@@ -212,6 +351,7 @@ onUnmounted(() => {
     width: 100%;
     height: 100%;
     background: transparent;
+    pointer-events: none;
 }
 
 .pet-area {
@@ -221,6 +361,7 @@ onUnmounted(() => {
     width: 192px;
     height: 210px;
     transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: auto;
 }
 
 .pet-area.squishing {
@@ -267,6 +408,87 @@ onUnmounted(() => {
 
 .stat-fill.mood {
     background: #9d6fd8;
+}
+
+.pet-mood.sleeping {
+    filter: brightness(0.55) saturate(0.7);
+}
+
+.pet-mood.low-stat {
+    filter: grayscale(0.4) brightness(0.85);
+}
+
+.cg-sleep {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    pointer-events: none;
+}
+
+.zzz {
+    position: absolute;
+    font-size: 14px;
+    font-weight: bold;
+    color: rgba(157, 111, 216, 0.8);
+    animation: float-z 2.4s ease-in-out infinite;
+}
+
+.z1 { animation-delay: 0s; left: 0; }
+.z2 { animation-delay: 0.8s; left: 10px; font-size: 18px; }
+.z3 { animation-delay: 1.6s; left: 20px; font-size: 16px; }
+
+@keyframes float-z {
+    0% { transform: translateY(0) scale(0.6); opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 0.6; }
+    100% { transform: translateY(-30px) scale(1.1); opacity: 0; }
+}
+
+.cg-lowstat {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.lowstat-icon {
+    font-size: 16px;
+    display: inline-block;
+    animation: shake-icon 0.5s ease-in-out infinite;
+}
+
+@keyframes shake-icon {
+    0%, 100% { transform: rotate(-8deg) translateY(0); }
+    50% { transform: rotate(8deg) translateY(-3px); }
+}
+
+.cg-eat {
+    position: absolute;
+    top: 50%;
+    right: -10px;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.eat-icon {
+    font-size: 22px;
+    display: inline-block;
+    animation: eat-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.eat-icon.bone {
+    animation: bone-fade 0.3s ease-out;
+}
+
+@keyframes eat-pop {
+    0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes bone-fade {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 .pet-mood {
@@ -369,6 +591,7 @@ onUnmounted(() => {
     top: 5px;
     width: 300px;
     height: 220px;
+    pointer-events: auto;
 }
 
 .bubble {
@@ -507,6 +730,7 @@ onUnmounted(() => {
     border-radius: 10px;
     padding: 4px;
     box-shadow: 0 6px 20px rgba(255, 122, 156, 0.2);
+    pointer-events: auto;
 }
 
 .menu-item {
@@ -524,5 +748,81 @@ onUnmounted(() => {
 
 .menu-item:hover {
     background: rgba(255, 122, 156, 0.3);
+}
+
+.festival-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 200;
+}
+
+.festival-particle {
+    position: absolute;
+    top: -20px;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+    opacity: 0.9;
+}
+
+.festival-fall {
+    animation-name: particle-fall;
+}
+
+.festival-sway {
+    animation-name: particle-sway;
+}
+
+.festival-float {
+    animation-name: particle-float;
+}
+
+@keyframes particle-fall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.9; }
+    90% { opacity: 0.9; }
+    100% { transform: translateY(250px) rotate(360deg); opacity: 0; }
+}
+
+@keyframes particle-sway {
+    0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.9; }
+    50% { transform: translateY(120px) translateX(20px) rotate(180deg); }
+    90% { opacity: 0.9; }
+    100% { transform: translateY(250px) translateX(-15px) rotate(360deg); opacity: 0; }
+}
+
+@keyframes particle-float {
+    0% { transform: translateY(0) scale(0.8); opacity: 0; }
+    20% { opacity: 0.9; }
+    50% { transform: translateY(-15px) scale(1.1); }
+    80% { opacity: 0.9; }
+    100% { transform: translateY(0) scale(0.8); opacity: 0; }
+}
+
+.pet-mood.walking .pet-img {
+    animation: walk-bounce 0.35s ease-in-out infinite;
+}
+
+.pet-mood.walk-left .pet-img {
+    transform: scaleX(-1);
+}
+
+@keyframes walk-bounce {
+    0%, 100% { transform: translateY(0) scaleY(1); }
+    50% { transform: translateY(-4px) scaleY(0.97); }
+}
+
+.pet-mood.walk-left.walking .pet-img {
+    animation: walk-bounce-flip 0.35s ease-in-out infinite;
+}
+
+@keyframes walk-bounce-flip {
+    0%, 100% { transform: scaleX(-1) translateY(0) scaleY(1); }
+    50% { transform: scaleX(-1) translateY(-4px) scaleY(0.97); }
 }
 </style>

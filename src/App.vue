@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from "vue";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, currentMonitor } from "@tauri-apps/api/window";
+import { PhysicalPosition } from "@tauri-apps/api/dpi";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { listen, emit } from "@tauri-apps/api/event";
 import PetView from "./components/PetView.vue";
@@ -20,7 +21,7 @@ import {
 
 const reminderMessages = [
     "喂，喝水了吗？别渴死了没人管你 >_<",
-    "坐太久屁股要长椅子上了，起来动动 _(:з」∠)_",
+    "坐太久要长椅子上了，起来动动 _(:з」∠)_",
     "眼睛不累吗？看看远处啦，笨蛋 (=^･^=)",
     "又忘记休息了？真是的……站起来走走 >w<",
     "脖子不动一下吗？会僵硬的啦 (=^･^=)",
@@ -59,11 +60,34 @@ const streamed = ref("");
 const error = ref("");
 const mood = ref<Mood>("neutral");
 const petStats = ref<PetStats>(loadStats());
+const isSleeping = ref(false);
+const walkingDirection = ref<"left" | "right" | null>(null);
 
 let moodTimer: ReturnType<typeof setTimeout> | undefined;
 let decayTimer: ReturnType<typeof setInterval> | undefined;
 let reminderTimer: ReturnType<typeof setInterval> | undefined;
+let sleepCheckTimer: ReturnType<typeof setInterval> | undefined;
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
+let walkTimer: ReturnType<typeof setTimeout> | undefined;
+let walkStepTimer: ReturnType<typeof setInterval> | undefined;
 let feedCooldown = false;
+
+function checkSleep() {
+    const hour = new Date().getHours();
+    const nightTime = hour >= 22 || hour < 7;
+    if (nightTime || idleTimer === null) {
+        isSleeping.value = true;
+    } else {
+        isSleeping.value = false;
+    }
+}
+
+function wakeUp() {
+    isSleeping.value = false;
+    if (walkStepTimer) { clearInterval(walkStepTimer); walkingDirection.value = null; }
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => { idleTimer = undefined; checkSleep(); }, 5 * 60 * 1000);
+}
 
 function setMood(m: Mood) {
     mood.value = m;
@@ -85,6 +109,7 @@ watch(streamed, (text) => {
 function handleFeed() {
     if (feedCooldown) return;
     feedCooldown = true;
+    wakeUp();
     setTimeout(() => { feedCooldown = false; }, 30000);
     petStats.value = feedPet(petStats.value);
     saveStats(petStats.value);
@@ -101,6 +126,7 @@ function handleFeed() {
 function handlePet() {
     petStats.value = petBoost(petStats.value);
     saveStats(petStats.value);
+    wakeUp();
 }
 
 function startReminder() {
@@ -111,6 +137,62 @@ function startReminder() {
         history.value.push({ role: "assistant", content: msg });
         setMood(parseMood(msg));
     }, settings.value.reminderInterval * 60 * 1000);
+}
+
+async function startWalking() {
+    if (waiting.value || isSleeping.value) {
+        scheduleNextWalk();
+        return;
+    }
+    const win = getCurrentWindow();
+    const pos = await win.outerPosition();
+    const size = await win.outerSize();
+    const monitor = await currentMonitor();
+    if (!monitor) { scheduleNextWalk(); return; }
+
+    const screenW = monitor.size.width;
+    const screenH = monitor.size.height;
+    const monX = monitor.position().x;
+    const monY = monitor.position().y;
+    const winW = size.width;
+    const winH = size.height;
+
+    const minX = monX;
+    const maxX = monX + screenW - winW;
+    const minY = monY;
+    const maxY = monY + screenH - winH;
+
+    const targetX = minX + Math.random() * (maxX - minX);
+    const targetY = minY + Math.random() * (maxY - minY);
+    const dir = targetX < pos.x ? "left" : "right";
+    walkingDirection.value = dir;
+
+    const startX = pos.x;
+    const startY = pos.y;
+    const dx = targetX - startX;
+    const dy = targetY - startY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const steps = Math.ceil(distance / 3);
+    let step = 0;
+
+    walkStepTimer = setInterval(async () => {
+        step++;
+        const progress = step / steps;
+        const x = Math.round(startX + dx * progress);
+        const y = Math.round(startY + dy * progress);
+        await win.setPosition(new PhysicalPosition(x, y));
+        if (step >= steps) {
+            if (walkStepTimer) clearInterval(walkStepTimer);
+            walkingDirection.value = null;
+            scheduleNextWalk();
+        }
+    }, 16);
+}
+
+function scheduleNextWalk() {
+    if (walkTimer) clearTimeout(walkTimer);
+    const delay = 15 * 60 * 1000 + Math.random() * 15 * 60 * 1000;
+    walkTimer = setTimeout(startWalking, delay);
 }
 
 async function openSettings() {
@@ -151,6 +233,7 @@ function onSettingsCanceled() {
 
 async function handleSend(text: string) {
     if (waiting.value || !text.trim()) return;
+    wakeUp();
     history.value.push({ role: "user", content: text });
     if (history.value.length > 10) history.value.splice(0, history.value.length - 10);
 
@@ -221,7 +304,10 @@ onMounted(() => {
             petStats.value = applyDecay(petStats.value);
             saveStats(petStats.value);
         }, 30000);
+        wakeUp();
+        sleepCheckTimer = setInterval(checkSleep, 60000);
         startReminder();
+        scheduleNextWalk();
         setTimeout(() => {
             history.value.push({ role: "assistant", content: getTimeGreeting() });
         }, 800);
@@ -231,6 +317,10 @@ onMounted(() => {
 onUnmounted(() => {
     if (decayTimer) clearInterval(decayTimer);
     if (reminderTimer) clearInterval(reminderTimer);
+    if (sleepCheckTimer) clearInterval(sleepCheckTimer);
+    if (idleTimer) clearTimeout(idleTimer);
+    if (walkTimer) clearTimeout(walkTimer);
+    if (walkStepTimer) clearInterval(walkStepTimer);
 });
 
 watch(() => [settings.value.reminderEnabled, settings.value.reminderInterval], () => {
@@ -246,6 +336,8 @@ watch(() => [settings.value.reminderEnabled, settings.value.reminderInterval], (
         :streamed="streamed"
         :mood="mood"
         :pet-stats="petStats"
+        :is-sleeping="isSleeping"
+        :walking-direction="walkingDirection"
         @send="handleSend"
         @open-settings="openSettings"
         @feed="handleFeed"
