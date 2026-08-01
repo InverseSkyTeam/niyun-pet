@@ -30,6 +30,18 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            use tauri_plugin_dialog::DialogExt;
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+            app.dialog()
+                .message("养猫要专心！一只就够了~")
+                .title("逆云")
+                .show(|_| {});
+        }))
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![get_cursor_pos])
         .on_window_event(|window, event| {
