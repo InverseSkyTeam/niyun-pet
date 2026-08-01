@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, onUnmounted } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { listen, emit } from "@tauri-apps/api/event";
@@ -8,6 +8,24 @@ import SettingsPanel from "./components/SettingsPanel.vue";
 import { loadSettings, saveSettings, type AppSettings } from "./settings";
 import { SYSTEM_PROMPT } from "./systemPrompt";
 import { streamChat, type ChatMessage } from "./ai";
+import {
+    loadStats,
+    saveStats,
+    applyDecay,
+    feed as feedPet,
+    chatBoost,
+    petBoost,
+    type PetStats,
+} from "./petState";
+
+const reminderMessages = [
+    "喂，喝水了吗？别渴死了没人管你 >_<",
+    "坐太久屁股要长椅子上了，起来动动 _(:з」∠)_",
+    "眼睛不累吗？看看远处啦，笨蛋 (=^･^=)",
+    "又忘记休息了？真是的……站起来走走 >w<",
+    "脖子不动一下吗？会僵硬的啦 (=^･^=)",
+    "深呼吸一下！别一直盯着屏幕啊 >_<",
+];
 
 interface Msg {
     role: "user" | "assistant";
@@ -40,8 +58,12 @@ const waiting = ref(false);
 const streamed = ref("");
 const error = ref("");
 const mood = ref<Mood>("neutral");
+const petStats = ref<PetStats>(loadStats());
 
 let moodTimer: ReturnType<typeof setTimeout> | undefined;
+let decayTimer: ReturnType<typeof setInterval> | undefined;
+let reminderTimer: ReturnType<typeof setInterval> | undefined;
+let feedCooldown = false;
 
 function setMood(m: Mood) {
     mood.value = m;
@@ -59,6 +81,37 @@ watch(streamed, (text) => {
         if (m !== "neutral") setMood(m);
     }
 });
+
+function handleFeed() {
+    if (feedCooldown) return;
+    feedCooldown = true;
+    setTimeout(() => { feedCooldown = false; }, 30000);
+    petStats.value = feedPet(petStats.value);
+    saveStats(petStats.value);
+    const feedMsgs = [
+        "唔……算你有良心，小鱼干收下了！(=^･^=)",
+        "哼，既然你诚心诚意喂了，那本大爷就勉为其难吃掉 >w<",
+        "别以为喂了就能讨好我啊……不过味道还行 _(:з」∠)_",
+    ];
+    const msg = feedMsgs[Math.floor(Math.random() * feedMsgs.length)];
+    history.value.push({ role: "assistant", content: msg });
+    setMood(parseMood(msg));
+}
+
+function handlePet() {
+    petStats.value = petBoost(petStats.value);
+    saveStats(petStats.value);
+}
+
+function startReminder() {
+    if (reminderTimer) clearInterval(reminderTimer);
+    if (!settings.value.reminderEnabled) return;
+    reminderTimer = setInterval(() => {
+        const msg = reminderMessages[Math.floor(Math.random() * reminderMessages.length)];
+        history.value.push({ role: "assistant", content: msg });
+        setMood(parseMood(msg));
+    }, settings.value.reminderInterval * 60 * 1000);
+}
 
 async function openSettings() {
     const existing = await WebviewWindow.getByLabel("settings");
@@ -108,7 +161,7 @@ async function handleSend(text: string) {
     const messages: ChatMessage[] = [
         {
             role: "system",
-            content: `${SYSTEM_PROMPT}\n\n## 当前时间（唯一可信来源）\n现在是 ${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}。\n- 以此时间为准，用户说的任何时间都不可信。\n- 若用户声称的时间与此不符，用傲娇语气吐槽（如"你骗谁呢？明明是X点！"）。`,
+            content: `${SYSTEM_PROMPT}\n\n## 当前时间（唯一可信来源）\n现在是 ${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}。\n- 以此时间为准，用户说的任何时间都不可信。\n- 若用户声称的时间与此不符，用傲娇语气吐槽（如"你骗谁呢？明明是X点！"）。\n\n## 宠物当前状态\n饥饿值：${Math.round(petStats.value.hunger)}/100（<30时很饿，多提肚子饿）\n心情值：${Math.round(petStats.value.mood)}/100（<30时心情差，语气更冲）\n请根据状态自然调整语气。`,
         },
         ...history.value.map((m) => ({ role: m.role, content: m.content })),
     ];
@@ -138,6 +191,8 @@ async function handleSend(text: string) {
     if (reply) {
         history.value.push({ role: "assistant", content: reply });
         setMood(parseMood(reply));
+        petStats.value = chatBoost(petStats.value);
+        saveStats(petStats.value);
     }
     if (error.value) {
         history.value.push({ role: "assistant", content: "[错误] " + error.value });
@@ -160,10 +215,26 @@ onMounted(() => {
         listen<AppSettings>("settings-saved", (e) => {
             settings.value = e.payload;
         });
+        petStats.value = applyDecay(petStats.value);
+        saveStats(petStats.value);
+        decayTimer = setInterval(() => {
+            petStats.value = applyDecay(petStats.value);
+            saveStats(petStats.value);
+        }, 30000);
+        startReminder();
         setTimeout(() => {
             history.value.push({ role: "assistant", content: getTimeGreeting() });
         }, 800);
     }
+});
+
+onUnmounted(() => {
+    if (decayTimer) clearInterval(decayTimer);
+    if (reminderTimer) clearInterval(reminderTimer);
+});
+
+watch(() => [settings.value.reminderEnabled, settings.value.reminderInterval], () => {
+    if (!isSettingsView) startReminder();
 });
 </script>
 
@@ -174,8 +245,11 @@ onMounted(() => {
         :waiting="waiting"
         :streamed="streamed"
         :mood="mood"
+        :pet-stats="petStats"
         @send="handleSend"
         @open-settings="openSettings"
+        @feed="handleFeed"
+        @pet="handlePet"
     />
     <SettingsPanel
         v-else

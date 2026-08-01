@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch, onMounted, onUnmounted } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import type { PetStats } from "../petState";
 
 interface Msg {
     role: "user" | "assistant";
@@ -14,11 +15,14 @@ const props = defineProps<{
     waiting: boolean;
     streamed: string;
     mood?: Mood;
+    petStats?: PetStats;
 }>();
 
 const emit = defineEmits<{
     send: [text: string];
     openSettings: [];
+    feed: [];
+    pet: [];
 }>();
 
 const inputText = ref("");
@@ -28,6 +32,14 @@ const menuVisible = ref(false);
 const menuPos = ref({ x: 0, y: 0 });
 const autoScroll = ref(true);
 const squishing = ref(false);
+
+const hungerPct = computed(() => Math.round(props.petStats?.hunger ?? 100));
+const moodPct = computed(() => Math.round(props.petStats?.mood ?? 100));
+
+function feedPet() {
+    emit("feed");
+    menuVisible.value = false;
+}
 
 const displayMsgs = computed(() => {
     const msgs: { role: "user" | "assistant"; content: string }[] = [...props.history];
@@ -66,7 +78,7 @@ watch(
 function openMenu(e: MouseEvent) {
     menuVisible.value = true;
     const w = 130;
-    const h = 80;
+    const h = 116;
     let x = e.clientX;
     let y = e.clientY;
     if (x + w > window.innerWidth) x = window.innerWidth - w - 4;
@@ -88,6 +100,7 @@ let unlistenMove: (() => void) | undefined;
 function onPetMouseDown(e: MouseEvent) {
     if (e.button === 0) {
         squishing.value = true;
+        emit("pet");
         getCurrentWindow().startDragging();
         moveDebounce = setTimeout(() => {
             squishing.value = false;
@@ -120,6 +133,16 @@ onUnmounted(() => {
         >
             <div class="pet-mood" :class="'mood-' + (mood || 'neutral')">
                 <div class="pet-img"></div>
+            </div>
+            <div class="pet-stats">
+                <div class="stat">
+                    <span class="stat-icon">🍣</span>
+                    <div class="stat-bar"><div class="stat-fill" :style="{ width: hungerPct + '%' }"></div></div>
+                </div>
+                <div class="stat">
+                    <span class="stat-icon">💖</span>
+                    <div class="stat-bar"><div class="stat-fill mood" :style="{ width: moodPct + '%' }"></div></div>
+                </div>
             </div>
         </div>
 
@@ -160,6 +183,7 @@ onUnmounted(() => {
             :style="{ left: menuPos.x + 'px', top: menuPos.y + 'px' }"
             @mousedown.stop
         >
+            <button class="menu-item" @click="feedPet">投喂小鱼干</button>
             <button
                 class="menu-item"
                 @click="
@@ -202,6 +226,47 @@ onUnmounted(() => {
 .pet-area.squishing {
     transform: scaleY(0.82) scaleX(1.15);
     transition: transform 0.1s ease-out;
+}
+
+.pet-stats {
+    position: absolute;
+    bottom: 4px;
+    left: 8px;
+    right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    pointer-events: none;
+}
+
+.stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.stat-icon {
+    font-size: 11px;
+    line-height: 1;
+}
+
+.stat-bar {
+    flex: 1;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.stat-fill {
+    height: 100%;
+    background: #ff7a9c;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.stat-fill.mood {
+    background: #9d6fd8;
 }
 
 .pet-mood {

@@ -16,6 +16,8 @@ const form = reactive({
     model: props.settings.model,
     thinkingEnabled: props.settings.thinkingEnabled,
     reasoningEffort: props.settings.reasoningEffort,
+    reminderEnabled: props.settings.reminderEnabled,
+    reminderInterval: props.settings.reminderInterval,
 });
 
 const apiKeyInput = ref<HTMLInputElement | null>(null);
@@ -41,6 +43,7 @@ const detectedProvider = computed(() => {
 });
 
 const effortOptions = ["low", "medium", "high", "xhigh", "max"] as const;
+const intervalOptions = [15, 30, 45, 60, 90] as const;
 
 function save() {
     emit("save", {
@@ -50,6 +53,8 @@ function save() {
         model: form.model.trim(),
         thinkingEnabled: form.thinkingEnabled,
         reasoningEffort: form.reasoningEffort.trim(),
+        reminderEnabled: form.reminderEnabled,
+        reminderInterval: form.reminderInterval,
     });
 }
 
@@ -235,6 +240,48 @@ function closeSettings() {
                             >
                                 {{ opt }}
                             </button>
+                        </div>
+                    </div>
+
+                    <div
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
+                    >
+                        <div class="pt-0.5">
+                            <div class="text-sm font-medium text-rose-900">定时提醒</div>
+                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
+                                逆云会定时提醒你休息、喝水。
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 h-10">
+                            <button
+                                class="relative h-6 w-11 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/20 focus-visible:ring-offset-2"
+                                :class="form.reminderEnabled ? 'bg-rose-500' : 'bg-rose-200'"
+                                role="switch"
+                                :aria-checked="form.reminderEnabled"
+                                @click="form.reminderEnabled = !form.reminderEnabled"
+                            >
+                                <span
+                                    class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all duration-200"
+                                    :class="form.reminderEnabled ? 'translate-x-5' : 'translate-x-0'"
+                                />
+                            </button>
+                            <div v-if="form.reminderEnabled" class="flex flex-wrap gap-1.5">
+                                <button
+                                    v-for="opt in intervalOptions"
+                                    :key="opt"
+                                    type="button"
+                                    class="h-8 px-3.5 rounded-md border text-sm font-mono transition-all duration-200"
+                                    :class="
+                                        form.reminderInterval === opt
+                                            ? 'border-rose-500 bg-rose-500 text-white shadow-sm'
+                                            : 'border-rose-200 bg-white text-rose-600 hover:border-rose-300 hover:bg-rose-50'
+                                    "
+                                    @click="form.reminderInterval = opt"
+                                >
+                                    {{ opt }}min
+                                </button>
+                            </div>
+                            <span v-else class="text-sm text-rose-600">已禁用</span>
                         </div>
                     </div>
 

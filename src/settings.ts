@@ -6,6 +6,8 @@ export interface AppSettings {
     maxTokens: number;
     thinkingEnabled: boolean;
     reasoningEffort: string;
+    reminderEnabled: boolean;
+    reminderInterval: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -16,6 +18,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     maxTokens: 1024,
     thinkingEnabled: false,
     reasoningEffort: "",
+    reminderEnabled: true,
+    reminderInterval: 45,
 };
 
 const STORAGE_KEY = "niyun_settings";
