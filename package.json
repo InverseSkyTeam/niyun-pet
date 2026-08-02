@@ -16,6 +16,7 @@
         "@tauri-apps/api": "^2.11.1",
         "@tauri-apps/plugin-http": "^2.5.9",
         "ai": "^7.0.44",
+        "uapi-browser-sdk": "^0.1.18",
         "vue": "^3.5.40"
     },
     "devDependencies": {

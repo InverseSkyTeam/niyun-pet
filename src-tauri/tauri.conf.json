@@ -13,10 +13,10 @@
         "windows": [
             {
                 "title": "逆云",
-                "width": 510,
-                "height": 230,
-                "minWidth": 510,
-                "minHeight": 230,
+                "width": 600,
+                "height": 450,
+                "minWidth": 600,
+                "minHeight": 450,
                 "transparent": true,
                 "decorations": false,
                 "alwaysOnTop": true,

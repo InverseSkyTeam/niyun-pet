@@ -64,16 +64,16 @@ function closeSettings() {
 </script>
 
 <template>
-    <div class="h-screen flex flex-col bg-rose-50 font-sans overflow-hidden">
+    <div class="h-screen flex flex-col bg-stone-50 font-sans overflow-hidden">
         <div
-            class="title-bar flex items-center justify-between px-4 py-3 bg-gradient-to-r from-rose-400 to-pink-400"
+            class="title-bar flex items-center justify-between px-4 py-3 bg-white/70 backdrop-blur-md border-b border-stone-200"
             data-tauri-drag-region
         >
             <div class="flex items-center gap-2">
-                <span class="text-white/90 text-sm font-medium tracking-wide">设置 · 逆云</span>
+                <span class="text-stone-600 text-sm font-medium tracking-wide">设置</span>
             </div>
             <button
-                class="title-btn w-7 h-7 rounded-md flex items-center justify-center text-white/80 hover:bg-white/25 hover:text-white transition-all duration-150"
+                class="title-btn w-7 h-7 rounded-md flex items-center justify-center text-stone-400 hover:bg-stone-200 hover:text-stone-600 transition-all duration-150"
                 @click="closeSettings"
             >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -87,12 +87,12 @@ function closeSettings() {
             <div class="min-h-full flex items-center justify-center p-6">
                 <div class="w-full max-w-3xl">
                     <div class="mb-8">
-                        <h1 class="text-2xl font-semibold tracking-tight text-rose-900">设置</h1>
-                        <p class="mt-1.5 text-sm text-rose-500">配置 AI 桌宠的模型接口与推理参数。</p>
+                        <h1 class="text-2xl font-semibold tracking-tight text-stone-800">设置</h1>
+                        <p class="mt-1.5 text-sm text-stone-400">配置 AI 桌宠的模型接口与推理参数。</p>
                     </div>
 
                 <div class="mb-6">
-                    <div class="text-xs font-medium text-rose-500 mb-2.5 uppercase tracking-wider">
+                    <div class="text-xs font-medium text-stone-500 mb-2.5 uppercase tracking-wider">
                         模型预设
                     </div>
                     <div class="flex flex-wrap gap-2">
@@ -103,8 +103,8 @@ function closeSettings() {
                             class="h-9 px-4 rounded-md border text-sm font-medium transition-all duration-200"
                             :class="
                                 detectedProvider === p.name
-                                    ? 'border-rose-500 bg-rose-500 text-white shadow-sm'
-                                    : 'border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:shadow-sm'
+                                    ? 'border-stone-700 bg-stone-700 text-white shadow-sm'
+                                    : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-100 hover:shadow-sm'
                             "
                             @click="applyPreset(p)"
                         >
@@ -113,13 +113,13 @@ function closeSettings() {
                     </div>
                 </div>
 
-                <div class="rounded-xl border border-rose-200 bg-white shadow-sm overflow-hidden">
+                <div class="rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-stone-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-rose-900">API Key</div>
-                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
+                            <div class="text-sm font-medium text-stone-800">API Key</div>
+                            <div class="mt-1 text-xs text-stone-400 leading-relaxed">
                                 用于鉴权的密钥，仅保存在本机。
                             </div>
                         </div>
@@ -129,20 +129,20 @@ function closeSettings() {
                                 ref="apiKeyInput"
                                 v-model="form.apiKey"
                                 type="password"
-                                class="flex h-10 w-full rounded-lg border border-rose-200 bg-white px-3.5 text-sm text-rose-900 transition-all duration-200 placeholder:text-rose-400 hover:border-rose-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10 focus:ring-offset-0 focus:outline-none shadow-sm"
+                                class="flex h-10 w-full rounded-lg border border-stone-200 bg-white px-3.5 text-sm text-stone-800 transition-all duration-200 placeholder:text-stone-400 hover:border-stone-300 focus:border-stone-500 focus:ring-2 focus:ring-stone-500/10 focus:ring-offset-0 focus:outline-none shadow-sm"
                                 placeholder="sk-..."
                                 maxlength="400"
                             />
-                            <p class="text-xs text-rose-400">{{ form.apiKey.length }} 字符</p>
+                            <p class="text-xs text-stone-400">{{ form.apiKey.length }} 字符</p>
                         </div>
                     </div>
 
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-stone-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-rose-900">Base URL</div>
-                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
+                            <div class="text-sm font-medium text-stone-800">Base URL</div>
+                            <div class="mt-1 text-xs text-stone-400 leading-relaxed">
                                 OpenAI 兼容接口地址。
                             </div>
                         </div>
@@ -151,13 +151,13 @@ function closeSettings() {
                                 id="base-url"
                                 v-model="form.baseUrl"
                                 type="text"
-                                class="flex h-10 w-full rounded-lg border border-rose-200 bg-white px-3.5 text-sm text-rose-900 transition-all duration-200 placeholder:text-rose-400 hover:border-rose-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10 focus:ring-offset-0 focus:outline-none font-mono shadow-sm"
+                                class="flex h-10 w-full rounded-lg border border-stone-200 bg-white px-3.5 text-sm text-stone-800 transition-all duration-200 placeholder:text-stone-400 hover:border-stone-300 focus:border-stone-500 focus:ring-2 focus:ring-stone-500/10 focus:ring-offset-0 focus:outline-none font-mono shadow-sm"
                                 placeholder="https://api.example.com/v1"
                                 maxlength="200"
                             />
                             <div class="flex items-center gap-2">
                                 <span
-                                    class="inline-flex items-center h-5 px-2.5 rounded-full text-[11px] font-medium bg-rose-100 text-rose-600"
+                                    class="inline-flex items-center h-5 px-2.5 rounded-full text-[11px] font-medium bg-stone-100 text-stone-600"
                                 >
                                     {{ detectedProvider }}
                                 </span>
@@ -166,11 +166,11 @@ function closeSettings() {
                     </div>
 
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-stone-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-rose-900">Model</div>
-                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
+                            <div class="text-sm font-medium text-stone-800">Model</div>
+                            <div class="mt-1 text-xs text-stone-400 leading-relaxed">
                                 调用的模型 ID。
                             </div>
                         </div>
@@ -178,48 +178,46 @@ function closeSettings() {
                             id="model"
                             v-model="form.model"
                             type="text"
-                            class="flex h-10 w-full rounded-lg border border-rose-200 bg-white px-3.5 text-sm text-rose-900 transition-all duration-200 placeholder:text-rose-400 hover:border-rose-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10 focus:ring-offset-0 focus:outline-none font-mono shadow-sm"
+                            class="flex h-10 w-full rounded-lg border border-stone-200 bg-white px-3.5 text-sm text-stone-800 transition-all duration-200 placeholder:text-stone-400 hover:border-stone-300 focus:border-stone-500 focus:ring-2 focus:ring-stone-500/10 focus:ring-offset-0 focus:outline-none font-mono shadow-sm"
                             placeholder="glm-4.7-flash"
                             maxlength="100"
                         />
                     </div>
 
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-stone-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-rose-900">思考模式</div>
-                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
+                            <div class="text-sm font-medium text-stone-800">思考模式</div>
+                            <div class="mt-1 text-xs text-stone-400 leading-relaxed">
                                 启用链式推理（CoT）。
                             </div>
                         </div>
                         <div class="flex items-center gap-3 h-10">
                             <button
-                                class="relative h-6 w-11 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/20 focus-visible:ring-offset-2"
-                                :class="form.thinkingEnabled ? 'bg-rose-500' : 'bg-rose-200'"
+                                class="relative h-6 w-11 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500/20 focus-visible:ring-offset-2"
+                                :class="form.thinkingEnabled ? 'bg-stone-700' : 'bg-stone-300'"
                                 role="switch"
                                 :aria-checked="form.thinkingEnabled"
                                 @click="form.thinkingEnabled = !form.thinkingEnabled"
                             >
                                 <span
                                     class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all duration-200"
-                                    :class="
-                                        form.thinkingEnabled ? 'tranrose-x-5' : 'tranrose-x-0'
-                                    "
+                                    :class="form.thinkingEnabled ? 'translate-x-5' : 'translate-x-0'"
                                 />
                             </button>
-                            <span class="text-sm text-rose-600">{{
+                            <span class="text-sm text-stone-500">{{
                                 form.thinkingEnabled ? "已启用" : "已禁用"
                             }}</span>
                         </div>
                     </div>
 
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-stone-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-rose-900">Reason Effort</div>
-                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
+                            <div class="text-sm font-medium text-stone-800">Reason Effort</div>
+                            <div class="mt-1 text-xs text-stone-400 leading-relaxed">
                                 推理力度，仅在思考模式启用时生效。
                             </div>
                         </div>
@@ -231,8 +229,8 @@ function closeSettings() {
                                 class="h-8 px-3.5 rounded-md border text-sm font-mono transition-all duration-200"
                                 :class="
                                     form.reasoningEffort === opt
-                                        ? 'border-rose-500 bg-rose-500 text-white shadow-sm'
-                                        : 'border-rose-200 bg-white text-rose-600 hover:border-rose-300 hover:bg-rose-50'
+                                        ? 'border-stone-700 bg-stone-700 text-white shadow-sm'
+                                        : 'border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:bg-stone-100'
                                 "
                                 @click="
                                     form.reasoningEffort = form.reasoningEffort === opt ? '' : opt
@@ -244,18 +242,18 @@ function closeSettings() {
                     </div>
 
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-stone-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-rose-900">定时提醒</div>
-                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
+                            <div class="text-sm font-medium text-stone-800">定时提醒</div>
+                            <div class="mt-1 text-xs text-stone-400 leading-relaxed">
                                 逆云会定时提醒你休息、喝水。
                             </div>
                         </div>
                         <div class="flex items-center gap-3 h-10">
                             <button
-                                class="relative h-6 w-11 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/20 focus-visible:ring-offset-2"
-                                :class="form.reminderEnabled ? 'bg-rose-500' : 'bg-rose-200'"
+                                class="relative h-6 w-11 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500/20 focus-visible:ring-offset-2"
+                                :class="form.reminderEnabled ? 'bg-stone-700' : 'bg-stone-300'"
                                 role="switch"
                                 :aria-checked="form.reminderEnabled"
                                 @click="form.reminderEnabled = !form.reminderEnabled"
@@ -273,24 +271,23 @@ function closeSettings() {
                                     class="h-8 px-3.5 rounded-md border text-sm font-mono transition-all duration-200"
                                     :class="
                                         form.reminderInterval === opt
-                                            ? 'border-rose-500 bg-rose-500 text-white shadow-sm'
-                                            : 'border-rose-200 bg-white text-rose-600 hover:border-rose-300 hover:bg-rose-50'
+                                            ? 'border-stone-700 bg-stone-700 text-white shadow-sm'
+                                            : 'border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:bg-stone-100'
                                     "
                                     @click="form.reminderInterval = opt"
                                 >
                                     {{ opt }}min
                                 </button>
                             </div>
-                            <span v-else class="text-sm text-rose-600">已禁用</span>
                         </div>
                     </div>
 
                     <div
-                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-rose-100"
+                        class="grid grid-cols-[240px_1fr] gap-6 px-7 py-5 border-b border-stone-100"
                     >
                         <div class="pt-0.5">
-                            <div class="text-sm font-medium text-rose-900">兼容性</div>
-                            <div class="mt-1 text-xs text-rose-500 leading-relaxed">
+                            <div class="text-sm font-medium text-stone-800">兼容性</div>
+                            <div class="mt-1 text-xs text-stone-400 leading-relaxed">
                                 支持的接口协议。
                             </div>
                         </div>
@@ -321,17 +318,17 @@ function closeSettings() {
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-end gap-2.5 px-7 py-5 bg-rose-50/70">
+                    <div class="flex items-center justify-end gap-2.5 px-7 py-5 bg-stone-50">
                         <button
                             type="button"
-                            class="h-9 px-4 rounded-lg border border-rose-200 bg-white text-sm font-medium text-rose-700 transition-all duration-200 hover:bg-rose-50 hover:border-rose-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/20"
+                            class="h-9 px-4 rounded-lg border border-stone-200 bg-white text-sm font-medium text-stone-600 transition-all duration-200 hover:bg-stone-100 hover:border-stone-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500/20"
                             @click="emit('cancel')"
                         >
                             取消
                         </button>
                         <button
                             type="button"
-                            class="h-9 px-5 rounded-lg bg-rose-500 text-sm font-medium text-white transition-all duration-200 hover:bg-rose-600 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/20 focus-visible:ring-offset-2 shadow-sm"
+                            class="h-9 px-5 rounded-lg bg-stone-700 text-sm font-medium text-white transition-all duration-200 hover:bg-stone-800 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500/20 focus-visible:ring-offset-2 shadow-sm"
                             @click="save"
                         >
                             保存更改

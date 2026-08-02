@@ -13,15 +13,6 @@ export function getFestival(): FestivalConfig | null {
     if ((m === 1 && d >= 20) || (m === 2 && d <= 20)) {
         return { name: "spring", particle: "🧧", count: 12, animation: "festival-fall" };
     }
-    if ((m === 3 && d >= 15) || (m === 4 && d <= 15)) {
-        return { name: "sakura", particle: "🌸", count: 18, animation: "festival-sway" };
-    }
-    if (m === 10 && d === 31) {
-        return { name: "halloween", particle: "🎃", count: 8, animation: "festival-float" };
-    }
-    if (m === 12 && (d === 24 || d === 25)) {
-        return { name: "christmas", particle: "❄", count: 25, animation: "festival-fall" };
-    }
     if (m === 1 && d === 1) {
         return { name: "newyear", particle: "✨", count: 25, animation: "festival-fall" };
     }

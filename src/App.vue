@@ -6,9 +6,13 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { listen, emit } from "@tauri-apps/api/event";
 import PetView from "./components/PetView.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
+import GalgameWindow from "./components/GalgameWindow.vue";
+import AboutWindow from "./components/AboutWindow.vue";
 import { loadSettings, saveSettings, type AppSettings } from "./settings";
 import { SYSTEM_PROMPT } from "./systemPrompt";
 import { streamChat, type ChatMessage } from "./ai";
+import { getDesktopInfo, desktopInfoToPrompt } from "./desktopInfo";
+import { fetchWeather, type WeatherSnapshot, type WeatherCG } from "./weather";
 import {
     loadStats,
     saveStats,
@@ -52,6 +56,8 @@ function parseMood(text: string): Mood {
 }
 
 const isSettingsView = new URLSearchParams(window.location.search).get("view") === "settings";
+const isGalgameView = new URLSearchParams(window.location.search).get("view") === "galgame";
+const isAboutView = new URLSearchParams(window.location.search).get("view") === "about";
 
 const settings = ref<AppSettings>(loadSettings());
 const history = ref<Msg[]>([]);
@@ -62,6 +68,8 @@ const mood = ref<Mood>("neutral");
 const petStats = ref<PetStats>(loadStats());
 const isSleeping = ref(false);
 const walkingDirection = ref<"left" | "right" | null>(null);
+const weatherCG = ref<WeatherCG | null>(null);
+const weatherSummary = ref<WeatherSnapshot | null>(null);
 
 let moodTimer: ReturnType<typeof setTimeout> | undefined;
 let decayTimer: ReturnType<typeof setInterval> | undefined;
@@ -70,6 +78,7 @@ let sleepCheckTimer: ReturnType<typeof setInterval> | undefined;
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
 let walkTimer: ReturnType<typeof setTimeout> | undefined;
 let walkStepTimer: ReturnType<typeof setInterval> | undefined;
+let weatherTimer: ReturnType<typeof setInterval> | undefined;
 let feedCooldown = false;
 
 function checkSleep() {
@@ -127,6 +136,26 @@ function handlePet() {
     petStats.value = petBoost(petStats.value);
     saveStats(petStats.value);
     wakeUp();
+}
+
+async function handleScreenPeek() {
+    if (waiting.value) return;
+    try {
+        const info = await getDesktopInfo();
+        const prompt = desktopInfoToPrompt(info);
+        await handleSend("（你偷偷瞄了一眼用户的桌面，根据窗口标题、程序类型和窗口内文字了解用户当前的活动。用傲娇的口吻自然吐槽用户此刻在做什么，不要复述原始数据。）\n" + prompt, true);
+    } catch (e: any) {
+        history.value.push({ role: "assistant", content: "嘁……眼睛被蒙住了什么都看不到！(>_<)" });
+    }
+}
+
+function handleGalgameEffect(moodDelta: number, hungerDelta: number) {
+    petStats.value = {
+        ...petStats.value,
+        mood: Math.max(0, Math.min(100, petStats.value.mood + moodDelta)),
+        hunger: Math.max(0, Math.min(100, petStats.value.hunger + hungerDelta)),
+    };
+    saveStats(petStats.value);
 }
 
 function startReminder() {
@@ -195,6 +224,22 @@ function scheduleNextWalk() {
     walkTimer = setTimeout(startWalking, delay);
 }
 
+async function refreshWeather() {
+    const snap = await fetchWeather();
+    weatherSummary.value = snap;
+    const cg = snap.cg;
+    weatherCG.value = cg;
+    if (cg && history.value.length === 0) {
+        const msg = `哼，外面${cg.label}了……${cg.description}。你出门记得带伞或加衣服啊笨蛋！>w<`;
+        history.value.push({ role: "assistant", content: msg });
+        setMood(parseMood(msg));
+    } else if (cg && history.value.length === 1) {
+        const msg = `而且外面${cg.label}了……${cg.description}。记得带伞或加衣服啊笨蛋！>w<`;
+        history.value.push({ role: "assistant", content: msg });
+        setMood(parseMood(msg));
+    }
+}
+
 async function openSettings() {
     const existing = await WebviewWindow.getByLabel("settings");
     if (existing) {
@@ -203,13 +248,54 @@ async function openSettings() {
     }
     new WebviewWindow("settings", {
         url: "/index.html?view=settings",
-        title: "设置 · 逆云",
+        title: "设置",
         width: 760,
         height: 720,
         minWidth: 760,
         minHeight: 720,
         decorations: false,
         resizable: false,
+        center: true,
+        alwaysOnTop: false,
+        skipTaskbar: false,
+    });
+}
+
+async function openAbout() {
+    const existing = await WebviewWindow.getByLabel("about");
+    if (existing) {
+        existing.setFocus();
+        return;
+    }
+    new WebviewWindow("about", {
+        url: "/index.html?view=about",
+        title: "关于",
+        width: 500,
+        height: 500,
+        minWidth: 500,
+        minHeight: 500,
+        decorations: false,
+        resizable: true,
+        alwaysOnTop: false,
+        skipTaskbar: false,
+    });
+}
+
+async function openGalgame() {
+    const existing = await WebviewWindow.getByLabel("galgame");
+    if (existing) {
+        existing.setFocus();
+        return;
+    }
+    new WebviewWindow("galgame", {
+        url: "/index.html?view=galgame",
+        title: "视觉小说",
+        width: 600,
+        height: 520,
+        minWidth: 560,
+        minHeight: 460,
+        decorations: false,
+        resizable: true,
         center: true,
         alwaysOnTop: false,
         skipTaskbar: false,
@@ -231,23 +317,24 @@ function onSettingsCanceled() {
     }
 }
 
-async function handleSend(text: string) {
+async function handleSend(text: string, hidden = false) {
     if (waiting.value || !text.trim()) return;
     wakeUp();
-    history.value.push({ role: "user", content: text });
+    if (!hidden) history.value.push({ role: "user", content: text });
     if (history.value.length > 10) history.value.splice(0, history.value.length - 10);
 
     waiting.value = true;
     streamed.value = "";
     error.value = "";
 
+    const systemContent = `${SYSTEM_PROMPT}\n\n## 当前时间（唯一可信来源）\n现在是 ${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}。\n- 以此时间为准，用户说的任何时间都不可信。\n- 若用户声称的时间与此不符，用傲娇语气吐槽（如"你骗谁呢？明明是X点！"）。\n\n## 宠物当前状态\n饥饿值：${Math.round(petStats.value.hunger)}/100（<30时很饿，多提肚子饿）\n心情值：${Math.round(petStats.value.mood)}/100（<30时心情差，语气更冲）\n心情值<=10时强制规则：禁止使用 >w<、>_<、(≧ω≦)、嘿嘿、哈哈 等开心语气，改用低落、沉闷的语气，颜文字用 (´-ω-) 或省略。\n请根据状态自然调整语气。`;
     const messages: ChatMessage[] = [
-        {
-            role: "system",
-            content: `${SYSTEM_PROMPT}\n\n## 当前时间（唯一可信来源）\n现在是 ${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}。\n- 以此时间为准，用户说的任何时间都不可信。\n- 若用户声称的时间与此不符，用傲娇语气吐槽（如"你骗谁呢？明明是X点！"）。\n\n## 宠物当前状态\n饥饿值：${Math.round(petStats.value.hunger)}/100（<30时很饿，多提肚子饿）\n心情值：${Math.round(petStats.value.mood)}/100（<30时心情差，语气更冲）\n请根据状态自然调整语气。`,
-        },
+        { role: "system", content: systemContent },
         ...history.value.map((m) => ({ role: m.role, content: m.content })),
     ];
+    if (hidden) {
+        messages.push({ role: "user", content: text });
+    }
 
     try {
         for await (const chunk of streamChat(messages, settings.value)) {
@@ -294,9 +381,12 @@ function getTimeGreeting(): string {
 }
 
 onMounted(() => {
-    if (!isSettingsView) {
+    if (!isSettingsView && !isAboutView) {
         listen<AppSettings>("settings-saved", (e) => {
             settings.value = e.payload;
+        });
+        listen<{ moodDelta: number; hungerDelta: number }>("galgame-effect", (e) => {
+            handleGalgameEffect(e.payload.moodDelta, e.payload.hungerDelta);
         });
         petStats.value = applyDecay(petStats.value);
         saveStats(petStats.value);
@@ -308,9 +398,9 @@ onMounted(() => {
         sleepCheckTimer = setInterval(checkSleep, 60000);
         startReminder();
         scheduleNextWalk();
-        setTimeout(() => {
-            history.value.push({ role: "assistant", content: getTimeGreeting() });
-        }, 800);
+        history.value.push({ role: "assistant", content: getTimeGreeting() });
+        refreshWeather();
+        weatherTimer = setInterval(refreshWeather, 60 * 60 * 1000);
     }
 });
 
@@ -321,16 +411,19 @@ onUnmounted(() => {
     if (idleTimer) clearTimeout(idleTimer);
     if (walkTimer) clearTimeout(walkTimer);
     if (walkStepTimer) clearInterval(walkStepTimer);
+    if (weatherTimer) clearInterval(weatherTimer);
 });
 
 watch(() => [settings.value.reminderEnabled, settings.value.reminderInterval], () => {
-    if (!isSettingsView) startReminder();
+    if (!isSettingsView && !isAboutView) startReminder();
 });
 </script>
 
 <template>
+    <GalgameWindow v-if="isGalgameView" />
+    <AboutWindow v-else-if="isAboutView" />
     <PetView
-        v-if="!isSettingsView"
+        v-else-if="!isSettingsView"
         :history="history"
         :waiting="waiting"
         :streamed="streamed"
@@ -338,10 +431,15 @@ watch(() => [settings.value.reminderEnabled, settings.value.reminderInterval], (
         :pet-stats="petStats"
         :is-sleeping="isSleeping"
         :walking-direction="walkingDirection"
+        :weather-cg="weatherCG"
         @send="handleSend"
         @open-settings="openSettings"
         @feed="handleFeed"
         @pet="handlePet"
+        @peek="handleScreenPeek"
+        @galgame-effect="handleGalgameEffect"
+        @open-galgame="openGalgame"
+        @open-about="openAbout"
     />
     <SettingsPanel
         v-else

@@ -4,6 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import type { PetStats } from "../petState";
 import { getFestival, generateParticles, type FestivalConfig } from "../festival";
+import { generateWeatherParticles, type WeatherCG } from "../weather";
 
 interface Msg {
     role: "user" | "assistant";
@@ -20,16 +21,22 @@ const props = defineProps<{
     petStats?: PetStats;
     isSleeping?: boolean;
     walkingDirection?: "left" | "right" | null;
+    weatherCG?: WeatherCG | null;
 }>();
 
 const festival = computed<FestivalConfig | null>(() => getFestival());
 const particles = computed(() => festival.value ? generateParticles(festival.value) : []);
+const weatherParticles = computed(() => props.weatherCG ? generateWeatherParticles(props.weatherCG) : []);
 
 const emit = defineEmits<{
     send: [text: string];
     openSettings: [];
     feed: [];
     pet: [];
+    peek: [];
+    galgameEffect: [moodDelta: number, hungerDelta: number];
+    openGalgame: [];
+    openAbout: [];
 }>();
 
 const inputText = ref("");
@@ -44,6 +51,15 @@ const eatBone = ref(false);
 const panelVisible = ref(true);
 let eatTimers: ReturnType<typeof setTimeout>[] = [];
 
+function openGalgameMenu() {
+    menuVisible.value = false;
+    emit("openGalgame");
+}
+
+const petAreaRef = ref<HTMLElement | null>(null);
+const panelRef = ref<HTMLElement | null>(null);
+const menuRef = ref<HTMLElement | null>(null);
+
 const hungerPct = computed(() => Math.round(props.petStats?.hunger ?? 100));
 const moodPct = computed(() => Math.round(props.petStats?.mood ?? 100));
 
@@ -52,6 +68,22 @@ const lowStatType = computed<"hunger" | "mood" | null>(() => {
     if (props.petStats.hunger < 20) return "hunger";
     if (props.petStats.mood < 20) return "mood";
     return null;
+});
+
+const moodZero = computed(() => (props.petStats?.mood ?? 100) <= 0);
+
+const rainDrops = computed(() => {
+    if (!moodZero.value) return [];
+    const drops: { left: number; delay: number; duration: number; size: number }[] = [];
+    for (let i = 0; i < 35; i++) {
+        drops.push({
+            left: Math.random() * 100,
+            delay: Math.random() * 3,
+            duration: 0.6 + Math.random() * 0.8,
+            size: 10 + Math.random() * 8,
+        });
+    }
+    return drops;
 });
 
 function feedPet() {
@@ -110,11 +142,11 @@ watch(
 function openMenu(e: MouseEvent) {
     menuVisible.value = true;
     const w = 130;
-    const h = 152;
+    const maxH = window.innerHeight - 20;
+    const h = Math.min(200, maxH);
     let x = e.clientX;
-    let y = e.clientY;
+    let y = Math.max(4, Math.min(e.clientY, window.innerHeight - h - 4));
     if (x + w > window.innerWidth) x = window.innerWidth - w - 4;
-    if (y + h > window.innerHeight) y = window.innerHeight - h - 4;
     menuPos.value = { x, y };
 }
 
@@ -143,6 +175,7 @@ function onPetMouseDown(e: MouseEvent) {
 const win = getCurrentWindow();
 let ignoring = false;
 let pollTimer: ReturnType<typeof setInterval> | undefined;
+let ignoreStuckSince = 0;
 
 const petCanvas = document.createElement("canvas");
 const petCtx = petCanvas.getContext("2d", { willReadFrequently: true });
@@ -160,18 +193,24 @@ function loadPetImage() {
 }
 
 function isTransparentAt(x: number, y: number): boolean {
-    const el = document.elementFromPoint(x, y);
-    if (!el) return true;
-    if (el.closest(".panel, .context-menu")) return false;
-    const petArea = el.closest(".pet-area");
-    if (petArea) {
-        if (!petImageLoaded || !petCtx) return false;
-        const rect = petArea.getBoundingClientRect();
-        const localX = Math.floor(x - rect.left);
-        const localY = Math.floor(y - rect.top);
-        if (localX < 0 || localX >= 192 || localY < 0 || localY >= 210) return true;
-        const pixel = petCtx.getImageData(localX, localY, 1, 1).data;
-        return pixel[3] < 128;
+    if (panelRef.value) {
+        const r = panelRef.value.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0 && x >= r.left && x < r.right && y >= r.top && y < r.bottom) return false;
+    }
+    if (menuRef.value) {
+        const r = menuRef.value.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0 && x >= r.left && x < r.right && y >= r.top && y < r.bottom) return false;
+    }
+    if (petAreaRef.value) {
+        const r = petAreaRef.value.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0 && x >= r.left && x < r.right && y >= r.top && y < r.bottom) {
+            if (!petImageLoaded || !petCtx) return false;
+            const localX = Math.floor(x - r.left);
+            const localY = Math.floor(y - r.top);
+            if (localX < 0 || localX >= 192 || localY < 0 || localY >= 210) return true;
+            const pixel = petCtx.getImageData(localX, localY, 1, 1).data;
+            return pixel[3] < 128;
+        }
     }
     return true;
 }
@@ -179,6 +218,7 @@ function isTransparentAt(x: number, y: number): boolean {
 async function setPassthrough(ignore: boolean) {
     if (ignoring === ignore) return;
     ignoring = ignore;
+    ignoreStuckSince = ignore ? Date.now() : 0;
     await win.setIgnoreCursorEvents(ignore);
 }
 
@@ -187,15 +227,19 @@ async function onMouseMovePassthrough(e: MouseEvent) {
 }
 
 async function pollCursor() {
-    if (!ignoring) return;
     try {
+        if (ignoring && ignoreStuckSince > 0 && Date.now() - ignoreStuckSince > 5000) {
+            await setPassthrough(false);
+            return;
+        }
         const [cx, cy] = await invoke<[number, number]>("get_cursor_pos");
         const winPos = await win.outerPosition();
         const scaleFactor = await win.scaleFactor();
         const localX = (cx - winPos.x) / scaleFactor;
         const localY = (cy - winPos.y) / scaleFactor;
-        if (!isTransparentAt(localX, localY)) {
-            await setPassthrough(false);
+        const wantIgnore = isTransparentAt(localX, localY);
+        if (wantIgnore !== ignoring) {
+            await setPassthrough(wantIgnore);
         }
     } catch {}
 }
@@ -236,7 +280,22 @@ onUnmounted(() => {
                 }"
             >{{ festival?.particle }}</span>
         </div>
+        <div v-if="weatherCG && weatherParticles.length" class="weather-overlay" aria-hidden="true">
+            <span
+                v-for="(p, i) in weatherParticles"
+                :key="'w' + i"
+                class="weather-particle"
+                :class="weatherCG.animation"
+                :style="{
+                    left: p.left + '%',
+                    animationDelay: p.delay + 's',
+                    animationDuration: p.duration + 's',
+                    fontSize: p.size + 'px',
+                }"
+            >{{ weatherCG.particle }}</span>
+        </div>
         <div
+            ref="petAreaRef"
             class="pet-area"
             :class="{ squishing: squishing }"
             @mousedown="onPetMouseDown"
@@ -272,6 +331,21 @@ onUnmounted(() => {
                 <span class="eat-icon" :class="{ bone: eatBone }">{{ eatBone ? '🦴' : '🐟' }}</span>
             </div>
 
+            <div v-if="moodZero" class="mood-zero-overlay"></div>
+            <div v-if="moodZero" class="mood-zero-rain" aria-hidden="true">
+                <span
+                    v-for="(d, i) in rainDrops"
+                    :key="i"
+                    class="rain-drop"
+                    :style="{
+                        left: d.left + '%',
+                        animationDelay: d.delay + 's',
+                        animationDuration: d.duration + 's',
+                        fontSize: d.size + 'px',
+                    }"
+                >💧</span>
+            </div>
+
             <div class="pet-stats">
                 <div class="stat">
                     <span class="stat-icon">🍣</span>
@@ -284,7 +358,7 @@ onUnmounted(() => {
             </div>
         </div>
 
-        <div v-if="panelVisible" class="panel">
+        <div v-if="panelVisible" ref="panelRef" class="panel">
             <div class="bubble">
                 <div class="bubble-arrow"></div>
                 <div class="msg-list" ref="msgListEl" @wheel="onWheel">
@@ -317,12 +391,23 @@ onUnmounted(() => {
 
         <div
             v-if="menuVisible"
+            ref="menuRef"
             class="context-menu"
             :style="{ left: menuPos.x + 'px', top: menuPos.y + 'px' }"
             @mousedown.stop
         >
             <button class="menu-item" @click="feedPet">投喂小鱼干</button>
+            <button
+                class="menu-item"
+                @click="
+                    emit('peek');
+                    menuVisible = false;
+                "
+            >
+                偷看屏幕
+            </button>
             <button class="menu-item" @click="togglePanel">{{ panelVisible ? '收起对话框' : '展开对话框' }}</button>
+            <button class="menu-item" @click="openGalgameMenu">视觉小说</button>
             <button
                 class="menu-item"
                 @click="
@@ -331,6 +416,15 @@ onUnmounted(() => {
                 "
             >
                 设置
+            </button>
+            <button
+                class="menu-item"
+                @click="
+                    emit('openAbout');
+                    menuVisible = false;
+                "
+            >
+                关于
             </button>
             <button
                 class="menu-item"
@@ -725,6 +819,8 @@ onUnmounted(() => {
     position: absolute;
     z-index: 100;
     width: 130px;
+    max-height: calc(100vh - 16px);
+    overflow-y: auto;
     background: rgba(74, 58, 68, 0.96);
     border: 1px solid rgba(107, 85, 96, 0.8);
     border-radius: 10px;
@@ -767,6 +863,7 @@ onUnmounted(() => {
     animation-iteration-count: infinite;
     animation-timing-function: linear;
     opacity: 0.9;
+    pointer-events: none;
 }
 
 .festival-fall {
@@ -804,6 +901,82 @@ onUnmounted(() => {
     100% { transform: translateY(0) scale(0.8); opacity: 0; }
 }
 
+.weather-overlay {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    border-radius: 12px;
+}
+
+.weather-particle {
+    position: absolute;
+    top: -24px;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+    opacity: 0.85;
+    line-height: 1;
+    pointer-events: none;
+}
+
+.weather-fall {
+    animation-name: w-fall;
+}
+
+.weather-fall-slow {
+    animation-name: w-fall-slow;
+    animation-timing-function: linear;
+}
+
+.weather-fall-fast {
+    animation-name: w-fall-fast;
+    animation-timing-function: linear;
+}
+
+.weather-drift {
+    animation-name: w-drift;
+}
+
+.weather-flash {
+    animation-name: w-flash;
+    animation-timing-function: ease-in-out;
+}
+
+@keyframes w-fall {
+    0% { transform: translateY(0) translateX(0); opacity: 0; }
+    10% { opacity: 0.9; }
+    100% { transform: translateY(260px) translateX(-8px); opacity: 0; }
+}
+
+@keyframes w-fall-slow {
+    0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.9; }
+    100% { transform: translateY(260px) translateX(20px) rotate(360deg); opacity: 0; }
+}
+
+@keyframes w-fall-fast {
+    0% { transform: translateY(0) translateX(0); opacity: 0; }
+    10% { opacity: 0.9; }
+    100% { transform: translateY(260px) translateX(-20px); opacity: 0; }
+}
+
+@keyframes w-drift {
+    0% { transform: translateX(-30px) translateY(0); opacity: 0; }
+    15% { opacity: 0.85; }
+    50% { transform: translateX(40px) translateY(-10px); }
+    85% { opacity: 0.85; }
+    100% { transform: translateX(120px) translateY(0); opacity: 0; }
+}
+
+@keyframes w-flash {
+    0% { transform: scale(0.6) translateY(0); opacity: 0; }
+    10% { transform: scale(1.3) translateY(20px); opacity: 1; }
+    30% { transform: scale(1) translateY(50px); opacity: 0.4; }
+    45% { transform: scale(1.2) translateY(90px); opacity: 1; }
+    70% { transform: scale(0.9) translateY(150px); opacity: 0.3; }
+    100% { transform: scale(0.6) translateY(260px); opacity: 0; }
+}
+
 .pet-mood.walking .pet-img {
     animation: walk-bounce 0.35s ease-in-out infinite;
 }
@@ -824,5 +997,41 @@ onUnmounted(() => {
 @keyframes walk-bounce-flip {
     0%, 100% { transform: scaleX(-1) translateY(0) scaleY(1); }
     50% { transform: scaleX(-1) translateY(-4px) scaleY(0.97); }
+}
+
+.mood-zero-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    z-index: 50;
+    animation: overlay-fade-in 0.8s ease;
+}
+
+.mood-zero-rain {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 51;
+}
+
+.rain-drop {
+    position: absolute;
+    top: -20px;
+    animation: rain-fall linear infinite;
+    opacity: 0.7;
+    line-height: 1;
+}
+
+@keyframes overlay-fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+@keyframes rain-fall {
+    0% { transform: translateY(0) translateX(0); opacity: 0; }
+    10% { opacity: 0.8; }
+    100% { transform: translateY(260px) translateX(-10px); opacity: 0; }
 }
 </style>
