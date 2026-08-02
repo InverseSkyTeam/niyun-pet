@@ -293,7 +293,7 @@ fn get_desktop_info() -> Result<DesktopInfo, String> {
         Some(WindowInfo { title, process: proc, class_name: String::new() })
     })();
 
-    let (screen_w, screen_h) = (|| -> (i32, i32) {
+    let (screen_w, screen_h) = (|| -> Option<(i32, i32)> {
         let script = "tell application \"Finder\" to get bounds of window of desktop";
         let out = Command::new("osascript").args(["-e", script]).output().ok()?;
         let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
@@ -342,7 +342,7 @@ fn get_desktop_info() -> Result<DesktopInfo, String> {
         Some(WindowInfo { title, process, class_name: String::new() })
     })();
 
-    let (screen_w, screen_h) = (|| -> (i32, i32) {
+    let (screen_w, screen_h) = (|| -> Option<(i32, i32)> {
         let out = Command::new("xrandr").output().ok()?;
         let text = String::from_utf8_lossy(&out.stdout);
         for line in text.lines() {
