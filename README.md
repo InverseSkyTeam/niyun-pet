@@ -41,7 +41,7 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-username/niyun.git
+git clone https://github.com/InverseSkyTeam/niyun-pet.git
 cd niyun
 
 # 安装前端依赖
